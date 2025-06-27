@@ -1,0 +1,59 @@
+.rank-card {
+  width: 300px;
+  height: 200px;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  border-radius: 16px;
+  padding: 24px;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.rank-card:hover {
+  transform: scale(1.05); /* 放大5% */
+  box-shadow: 0 8px 15px rgba(22, 93, 255, 0.2); /* 高亮阴影 */
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px); /* 核心虚化效果 */
+  display: none; /* 默认隐藏 */
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: #1e293b;
+  padding: 32px 48px;
+  border-radius: 20px;
+  width: 80%;
+  max-width: 600px;
+  color: white;
+  position: relative;
+}
+
+.song-item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.song-item:hover {
+  background: rgba(255,255,255,0.05); /* 虚化背景 */
+  padding-left: 8px; /* 轻微左移增强聚焦 */
+}
+
+@media (max-width: 768px) {
+  .rank-cards {
+    grid-template-columns: 1fr; /* 手机端单栏布局 */
+  }
+  .modal-content {
+    padding: 24px;
+  }
+}
