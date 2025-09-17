@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐排行榜</title>
+    <!-- 资源预加载 -->
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome 6.4+ -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .backdrop-blur {
+                backdrop-filter: blur(8px);
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .song-hover {
+                @apply transition-all duration-200 hover:bg-sky-500/10 hover:px-3;
+                border-radius: 0.5rem;
+            }
+        }
+    </style>
+    
+    <style>
+        /* 全局样式 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1E293B;
+            color: #E2E8F0;
+        }
+        
+        /* 输入框样式优化 */
+        input[type="text"],
+        input[type="password"] {
+            color: #1A1A1A !important; /* 深灰色，比纯黑更柔和但依然非常清晰 */
+            background-color: #FFFFFF !important;
+            font-weight: 500; /* 增加字重使文字更醒目 */
+            font-size: 14px; /* 确保字体大小适中 */
+            line-height: 1.5; /* 良好的行高提高可读性 */
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"]::placeholder,
+        input[type="password"]::placeholder {
+            color: rgba(0, 0, 0, 0.5) !important; /* 稍深的占位符颜色 */
+            font-weight: 300;
+            font-size: 14px;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            color: #111111 !important; /* 聚焦时使用更深的颜色 */
+            background-color: #FFFFFF !important;
+            font-weight: 600; /* 聚焦时增加字重 */
+            box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.3);
+        }
+        
+        /* 模态框样式 */
+        .modal-overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            will-change: opacity;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            will-change: transform;
+        }
+        
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        
+        /* 滚动条美化 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(22, 93, 255, 0.5);
+            border-radius: 10px;
+        }
+        
+        /* 播放器样式 */
+        .playing-song {
+            background-color: rgba(56, 182, 255, 0.15);
+            transition: background-color 0.3s ease;
+        }
+        
+        /* 悬浮播放器样式 */
+        .floating-player {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 300px;
+            background: rgba(30, 41, 59, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            padding: 15px;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: move;
+            transition: transform 0.2s ease;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .floating-player .cover-container {
+            flex-shrink: 0;
+        }
+        
+        .floating-player .cover {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: hidden;
+            transition: transform 0.6s ease;
+        }
+        
+        .floating-player .cover.playing {
+            animation: rotate 10s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .floating-player .content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .floating-player .info h2 {
+            font-size: 16px;
+            color: #E2E8F0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        
+        .floating-player .info p {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+        
+        .floating-player .progress-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        
+        .floating-player .progress {
+            height: 100%;
+            background: #1db954;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .floating-player .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .floating-player .controls button {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #E2E8F0;
+        }
+        
+        .floating-player .controls button.play {
+            font-size: 24px;
+            color: #1db954;
+        }
+        
+        .floating-player:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 导航栏 -->
+    <header class="bg-dark/80 backdrop-blur fixed top-0 left-0 w-full z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-music text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold">音乐排行榜</h1>
+            </div>
+            
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="#" class="hover:text-primary transition-colors">首页</a>
+                <a href="#" class="hover:text-primary transition-colors" id="nav-favorite-btn">收藏</a>
+                <a href="#" class="hover:text-primary transition-colors" id="nav-history-btn">历史</a>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+
+                
+                <!-- 用户信息和登录/登出按钮 -->
+                <div class="hidden md:flex items-center space-x-3">
+                    <div id="userInfo" class="text-sm hidden items-center space-x-2">
+                        <i class="fas fa-user text-primary"></i>
+                        <span id="usernameDisplay"></span>
+                    </div>
+                    <button id="loginButton" class="bg-primary hover:bg-primary/80 transition-colors px-4 py-1 rounded-full text-sm">
+                        登录
+                    </button>
+                    <button id="logoutButton" class="bg-gray-700 hover:bg-gray-600 transition-colors px-4 py-1 rounded-full text-sm hidden">
+                        登出
+                    </button>
+                </div>
+                
+                <button class="md:hidden text-xl">
+                    <i class="fa fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 pt-24 pb-16">
+        <section class="mb-12">
+            <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-8 text-center text-shadow">热门榜单</h2>
+            
+            <!-- 榜单卡片区域 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="chartsContainer">
+                <!-- 榜单卡片将通过JavaScript动态生成 -->
+            </div>
+        </section>
+        
+        <!-- 热门歌手区域 -->
+        <section class="mb-12">
+            <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-8 text-center text-shadow">热门歌手</h2>
+            
+            <!-- 歌手列表区域 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <!-- 歌手1 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=11" alt="周杰伦" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">周杰伦</h3>
+                    <p class="text-sm text-gray-400">182首热门歌曲</p>
+                </div>
+                
+                <!-- 歌手2 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=12" alt="林俊杰" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">林俊杰</h3>
+                    <p class="text-sm text-gray-400">165首热门歌曲</p>
+                </div>
+                
+                <!-- 歌手3 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=13" alt="陈奕迅" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">陈奕迅</h3>
+                    <p class="text-sm text-gray-400">156首热门歌曲</p>
+                </div>
+                
+                <!-- 歌手4 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=14" alt="张学友" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">张学友</h3>
+                    <p class="text-sm text-gray-400">148首热门歌曲</p>
+                </div>
+                
+                <!-- 歌手5 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=15" alt="王力宏" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">王力宏</h3>
+                    <p class="text-sm text-gray-400">132首热门歌曲</p>
+                </div>
+                
+                <!-- 歌手6 -->
+                <div class="text-center p-4 transition-transform hover:scale-105 cursor-pointer">
+                    <div class="w-full aspect-square rounded-full overflow-hidden mb-3 mx-auto">
+                        <img src="https://picsum.photos/300/300?random=16" alt="邓紫棋" class="w-full h-full object-cover">
+                    </div>
+                    <h3 class="font-medium">邓紫棋</h3>
+                    <p class="text-sm text-gray-400">125首热门歌曲</p>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 模态框（子页面） -->
+    <div class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" id="modalOverlay">
+        <div class="modal-content bg-dark border border-gray-800 rounded-2xl w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+                <h2 id="modalTitle" class="text-2xl font-bold">榜单详情</h2>
+                <button id="closeModal" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-grow" id="songsList">
+                <!-- 歌曲列表将通过JavaScript动态生成 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 登录/注册模态框 -->
+    <div class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" id="loginModal" style="display: none;">
+        <div class="modal-content bg-dark border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">用户登录/注册</h2>
+                <button id="closeLoginModal" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 登录/注册切换选项卡 -->
+            <div class="flex border-b border-gray-700 mb-6">
+                <button id="loginTab" class="flex-1 py-2 text-center font-medium text-primary border-b-2 border-primary">
+                    登录
+                </button>
+                <button id="registerTab" class="flex-1 py-2 text-center font-medium text-gray-400 hover:text-primary">
+                    注册
+                </button>
+            </div>
+            
+            <!-- 登录表单 -->
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label for="loginUsername" class="block text-sm text-gray-400 mb-1">用户名</label>
+                    <input type="text" id="loginUsername" class="w-full bg-dark/50 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:border-primary" placeholder="请输入用户名" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="loginPassword" class="block text-sm text-gray-400 mb-1">密码</label>
+                    <input type="password" id="loginPassword" class="w-full bg-dark/50 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:border-primary" placeholder="请输入密码" required>
+                </div>
+                
+                <button type="submit" class="w-full bg-primary hover:bg-primary/80 transition-colors rounded-lg py-2 font-medium">
+                    登录
+                </button>
+            </form>
+            
+            <!-- 注册表单 -->
+            <form id="registerForm" style="display: none;">
+                <div class="mb-4">
+                    <label for="registerUsername" class="block text-sm text-gray-400 mb-1">用户名</label>
+                    <input type="text" id="registerUsername" class="w-full bg-dark/50 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:border-primary" placeholder="请输入用户名" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="registerPassword" class="block text-sm text-gray-400 mb-1">密码</label>
+                    <input type="password" id="registerPassword" class="w-full bg-dark/50 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:border-primary" placeholder="请设置密码（至少6位）" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="registerConfirmPassword" class="block text-sm text-gray-400 mb-1">确认密码</label>
+                    <input type="password" id="registerConfirmPassword" class="w-full bg-dark/50 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:border-primary" placeholder="请再次输入密码" required>
+                </div>
+                
+                <button type="submit" class="w-full bg-primary hover:bg-primary/80 transition-colors rounded-lg py-2 font-medium">
+                    注册
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 音频元素（隐藏） -->
+    <audio id="audioPlayer"></audio>
+    
+    <!-- 悬浮音乐播放器 -->
+    <div class="floating-player" id="floatingPlayer">
+        <div class="cover-container">
+            <div class="cover" id="playerCoverContainer">
+                <img src="" alt="专辑封面" id="playerCover">
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="info">
+                <h2 id="playerTitle">未播放</h2>
+                <p id="playerArtist">-</p>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress" id="progressBar"></div>
+            </div>
+            
+            <div class="controls">
+                <button class="prev" id="prevBtn"><i class="fa fa-step-backward"></i></button>
+                <button class="play" id="playBtn"><i class="fa fa-play"></i></button>
+                <button class="next" id="nextBtn"><i class="fa fa-step-forward"></i></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 引入用户认证模块 -->
+    <script src="user-auth.js"></script>
+    
+    <script>
+        // 歌曲数据
+        const chartsData = {
+            soaringChart: {
+                name: "音乐飙升榜",
+                description: "发现正在飙升的热门音乐，见证新星崛起",
+                songs: [
+                    { id: 1, title: "IRIS OUT", artist: "米津玄师", cover: "https://picsum.photos/100/100?random=1", audioSrc: "audio/song1.mp3" },
+                    { id: 2, title: "共生", artist: "阮暖暖", cover: "https://picsum.photos/100/100?random=2", audioSrc: "audio/song2.mp3" },
+                    { id: 3, title: "天下谁人不识君", artist: "华云龙 KLE/mok 还行", cover: "https://picsum.photos/100/100?random=3", audioSrc: "audio/song3.mp3" },
+                    { id: 4, title: "TALKING SH*T FREEST", artist: "ljz329", cover: "https://picsum.photos/100/100?random=4", audioSrc: "audio/song4.mp3" },
+                    { id: 5, title: "真相是真（直方正式版）", artist: "蔡明希（不才）", cover: "https://picsum.photos/100/100?random=5", audioSrc: "audio/song5.mp3" }
+                ]
+            },
+            hotChart: {
+                name: "热门新歌榜",
+                description: "最新发布的热门单曲，第一时间聆听",
+                songs: [
+                    { id: 6, title: "Star Crossing Night", artist: "徐明浩 / GALI", cover: "https://picsum.photos/100/100?random=6", audioSrc: "audio/song6.mp3" },
+                    { id: 7, title: "3977", artist: "lj_Lz329", cover: "https://picsum.photos/100/100?random=7", audioSrc: "audio/song7.mp3" },
+                    { id: 8, title: "TALKING SH*T FRE", artist: "ljz329", cover: "https://picsum.photos/100/100?random=8", audioSrc: "audio/song8.mp3" },
+                    { id: 9, title: "我可以", artist: "梓渝", cover: "https://picsum.photos/100/100?random=9", audioSrc: "audio/song9.mp3" },
+                    { id: 10, title: "同花顺", artist: "黄星 / 邱鼎杰", cover: "https://picsum.photos/100/100?random=10", audioSrc: "audio/song10.mp3" }
+                ]
+            },
+            classicChart: {
+                name: "经典老歌榜",
+                description: "永恒的音乐经典，历久弥新的旋律",
+                songs: [
+                    { id: 11, title: "月亮代表我的心", artist: "邓丽君", cover: "https://picsum.photos/100/100?random=11", audioSrc: "audio/song11.mp3" },
+                    { id: 12, title: "海阔天空", artist: "Beyond", cover: "https://picsum.photos/100/100?random=12", audioSrc: "audio/song12.mp3" },
+                    { id: 13, title: "同桌的你", artist: "老狼", cover: "https://picsum.photos/100/100?random=13", audioSrc: "audio/song13.mp3" },
+                    { id: 14, title: "铁血丹心", artist: "甄妮", cover: "https://picsum.photos/100/100?random=14", audioSrc: "audio/song14.mp3" },
+                    { id: 15, title: "广岛之恋", artist: "莫文蔚", cover: "https://picsum.photos/100/100?random=15", audioSrc: "audio/song15.mp3" }
+                ]
+            },
+            favoriteChart: {
+                name: "最受喜爱的排行榜",
+                description: "根据用户喜爱程度排行的热门歌曲",
+                songs: [
+                    { id: 16, title: "月亮代表我的心", artist: "邓丽君", cover: "https://picsum.photos/100/100?random=16", audioSrc: "audio/song16.mp3" },
+                    { id: 17, title: "吻别", artist: "张学友", cover: "https://picsum.photos/100/100?random=17", audioSrc: "audio/song17.mp3" },
+                    { id: 18, title: "龙的传人", artist: "李建复（原唱）", cover: "https://picsum.photos/100/100?random=18", audioSrc: "audio/song18.mp3" },
+                    { id: 19, title: "大展鸿图", artist: "揽佬、刘夫阳", cover: "https://picsum.photos/100/100?random=19", audioSrc: "audio/song19.mp3" },
+                    { id: 20, title: "罗刹海市", artist: "刀郎", cover: "https://picsum.photos/100/100?random=20", audioSrc: "audio/song20.mp3" },
+                    { id: 21, title: "跳楼机", artist: "LBI 利比", cover: "https://picsum.photos/100/100?random=21", audioSrc: "audio/song21.mp3" },
+                    { id: 22, title: "东风破", artist: "周杰伦", cover: "https://picsum.photos/100/100?random=22", audioSrc: "audio/song22.mp3" },
+                    { id: 23, title: "至少还有你", artist: "林忆莲", cover: "https://picsum.photos/100/100?random=23", audioSrc: "audio/song23.mp3" },
+                    { id: 24, title: "离开我的依赖", artist: "en（王翊恩）", cover: "https://picsum.photos/100/100?random=24", audioSrc: "audio/song24.mp3" },
+                    { id: 25, title: "Star Crossing Night", artist: "徐明浩、GALI", cover: "https://picsum.photos/100/100?random=25", audioSrc: "audio/song25.mp3" }
+                ]
+            }
+        };
+
+        // 播放器元素
+        const audio = document.getElementById('audioPlayer');
+        const playerTitle = document.getElementById('playerTitle');
+        const playerArtist = document.getElementById('playerArtist');
+        const playerCover = document.getElementById('playerCover');
+        const playerCoverContainer = document.getElementById('playerCoverContainer');
+        const playBtn = document.getElementById('playBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
+        const floatingPlayer = document.getElementById('floatingPlayer');
+        
+        // 模态框元素
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const songsList = document.getElementById('songsList');
+        const closeModal = document.getElementById('closeModal');
+        
+        // 播放状态
+        let currentPlaylist = [];
+        let currentSongIndex = 0;
+        let isPlaying = false;
+        
+        // 收藏和历史记录
+        let favoriteSongs = [];
+        let historySongs = [];
+        
+        // 初始化播放器
+        function initPlayer() {
+            // 从本地存储恢复播放状态
+            const savedState = localStorage.getItem('musicPlayerState');
+            if (savedState) {
+                const { playlist, index, currentTime } = JSON.parse(savedState);
+                currentPlaylist = playlist;
+                currentSongIndex = index;
+                
+                if (currentPlaylist.length > 0) {
+                    loadSong(currentPlaylist[currentSongIndex]);
+                    audio.currentTime = currentTime || 0;
+                    
+                    // 如果之前是播放状态，继续播放
+                    if (localStorage.getItem('musicPlayerPlaying') === 'true') {
+                        playSong();
+                    }
+                }
+            }
+            
+            // 初始化收藏管理器和加载历史记录
+            FavoritesManager.init();
+            loadHistory();
+            
+            // 绑定事件
+            playBtn.addEventListener('click', togglePlay);
+            prevBtn.addEventListener('click', prevSong);
+            nextBtn.addEventListener('click', nextSong);
+            progressContainer.addEventListener('click', setProgress);
+            audio.addEventListener('timeupdate', updateProgress);
+            audio.addEventListener('ended', nextSong);
+            
+            // 拖拽功能
+            let isDragging = false;
+            let offsetX, offsetY;
+            
+            floatingPlayer.addEventListener('mousedown', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+                    isDragging = true;
+                    offsetX = e.clientX - floatingPlayer.getBoundingClientRect().left;
+                    offsetY = e.clientY - floatingPlayer.getBoundingClientRect().top;
+                    floatingPlayer.style.cursor = 'grabbing';
+                }
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    floatingPlayer.style.left = `${e.clientX - offsetX}px`;
+                    floatingPlayer.style.top = `${e.clientY - offsetY}px`;
+                    floatingPlayer.style.right = 'unset';
+                    floatingPlayer.style.bottom = 'unset';
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                floatingPlayer.style.cursor = 'move';
+            });
+        }
+        
+        // 加载歌曲到播放器
+        function loadToPlayer(song, playlist = null) {
+            // 如果提供了播放列表，则使用该播放列表
+            if (playlist && Array.isArray(playlist) && playlist.length > 0) {
+                currentPlaylist = playlist;
+                // 查找当前歌曲在播放列表中的索引
+                currentSongIndex = currentPlaylist.findIndex(s => s.id === song.id);
+                // 如果歌曲不在播放列表中，则添加到列表末尾
+                if (currentSongIndex === -1) {
+                    currentPlaylist.push(song);
+                    currentSongIndex = currentPlaylist.length - 1;
+                }
+            } else {
+                // 原有逻辑：仅使用当前歌曲作为播放列表
+                currentPlaylist = [song];
+                currentSongIndex = 0;
+            }
+            
+            loadSong(song);
+            playSong();
+            savePlayerState();
+            
+            // 添加到历史记录
+            addToHistory(song);
+        }
+        
+        // 加载歌曲
+        function loadSong(song) {
+            playerTitle.textContent = song.title;
+            playerArtist.textContent = song.artist;
+            playerCover.src = song.cover;
+            playerCover.alt = song.title;
+            audio.src = song.audioSrc;
+            progressBar.style.width = '0%';
+            
+            // 重置封面旋转状态
+            playerCoverContainer.classList.remove('playing');
+        }
+        
+        // 播放/暂停
+        function togglePlay() {
+            if (currentPlaylist.length === 0) return;
+            
+            isPlaying ? pauseSong() : playSong();
+        }
+        
+        function playSong() {
+            if (currentPlaylist.length === 0) return;
+            
+            isPlaying = true;
+            playBtn.innerHTML = '<i class="fa fa-pause"></i>';
+            audio.play();
+            
+            // 添加旋转动画
+            playerCoverContainer.classList.add('playing');
+            
+            localStorage.setItem('musicPlayerPlaying', 'true');
+        }
+        
+        function pauseSong() {
+            isPlaying = false;
+            playBtn.innerHTML = '<i class="fa fa-play"></i>';
+            audio.pause();
+            
+            // 移除旋转动画
+            playerCoverContainer.classList.remove('playing');
+            
+            localStorage.setItem('musicPlayerPlaying', 'false');
+        }
+        
+        // 上一首/下一首
+        function prevSong() {
+            if (currentPlaylist.length === 0) return;
+            
+            currentSongIndex--;
+            if (currentSongIndex < 0) {
+                currentSongIndex = currentPlaylist.length - 1;
+            }
+            
+            loadSong(currentPlaylist[currentSongIndex]);
+            if (isPlaying) audio.play();
+            savePlayerState();
+        }
+        
+        function nextSong() {
+            if (currentPlaylist.length === 0) return;
+            
+            currentSongIndex++;
+            if (currentSongIndex > currentPlaylist.length - 1) {
+                currentSongIndex = 0;
+            }
+            
+            loadSong(currentPlaylist[currentSongIndex]);
+            if (isPlaying) audio.play();
+            savePlayerState();
+        }
+        
+        // 更新进度条
+        function updateProgress() {
+            const { duration, currentTime } = audio;
+            const progressPercent = (currentTime / duration) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+            
+            // 每5秒保存一次播放进度
+            if (currentTime % 5 < 0.1) {
+                savePlayerState();
+            }
+        }
+        
+        // 设置进度
+        function setProgress(e) {
+            const width = this.clientWidth;
+            const clickX = e.offsetX;
+            const duration = audio.duration;
+            audio.currentTime = (clickX / width) * duration;
+        }
+        
+        // 保存播放状态
+        function savePlayerState() {
+            const state = {
+                playlist: currentPlaylist,
+                index: currentSongIndex,
+                currentTime: audio.currentTime
+            };
+            localStorage.setItem('musicPlayerState', JSON.stringify(state));
+        }
+        
+        // 初始化榜单
+        function initCharts() {
+            const chartsContainer = document.getElementById('chartsContainer');
+            
+            // 生成榜单卡片（跳过favoriteChart）
+            for (const [chartId, chartData] of Object.entries(chartsData)) {
+                // 跳过favoriteChart，它会在initFavoriteChart中单独处理
+                if (chartId === 'favoriteChart') continue;
+                
+                const card = document.createElement('div');
+                card.className = 'bg-dark/50 rounded-xl overflow-hidden card-hover';
+                card.innerHTML = `
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold mb-2">${chartData.name}</h3>
+                        <p class="text-sm text-gray-400 mb-4">${chartData.description}</p>
+                        <div class="space-y-2">
+                            ${chartData.songs.slice(0, 3).map(song => 
+                                `<div class="song-hover flex items-center p-2 cursor-pointer" 
+                                    data-song-id="${song.id}"
+                                    onclick="loadToPlayer(${JSON.stringify(song).replace(/"/g, '&quot;')}, ${JSON.stringify(chartData.songs).replace(/"/g, '&quot;')})">
+                                    <img src="${song.cover}" alt="${song.title}" class="w-10 h-10 rounded-md mr-3">
+                                    <div class="flex-grow">
+                                        <p class="text-sm font-medium">${song.title}</p>
+                                        <p class="text-xs text-gray-400">${song.artist}</p>
+                                    </div>
+                                    ${FavoritesManager.getFavoriteButtonHTML(song)}
+                                </div>`
+                            ).join('')}
+                        </div>
+                        <button class="mt-4 text-sm text-primary hover:underline" 
+                            data-chart-id="${chartId}">
+                            查看全部
+                        </button>
+                    </div>
+                `;
+                chartsContainer.appendChild(card);
+            }
+        }
+        
+        // 事件委托处理
+        document.addEventListener('click', (e) => {
+            const chartBtn = e.target.closest('[data-chart-id]');
+            if (chartBtn) {
+                openChartModal(chartBtn.dataset.chartId);
+            }
+            
+            // 收藏按钮点击
+            const favoriteBtn = e.target.closest('#nav-favorite-btn');
+            if (favoriteBtn) {
+                showFavorites();
+            }
+            
+            // 历史按钮点击
+            const historyBtn = e.target.closest('#nav-history-btn');
+            if (historyBtn) {
+                showHistory();
+            }
+        });
+        
+        // 收藏功能 - 模块化重新实现
+        const FavoritesManager = {
+            // 初始化收藏管理器
+            init: function() {
+                this.loadFavorites();
+                this.setupEventListeners();
+            },
+            
+            // 从localStorage加载收藏列表
+            loadFavorites: function() {
+                try {
+                    // 检查是否有登录的用户
+                    if (window.UserAuth && UserAuth.currentUser) {
+                        const savedFavorites = localStorage.getItem(`user_${UserAuth.currentUser.username}_favorites`);
+                        favoriteSongs = savedFavorites ? JSON.parse(savedFavorites) : [];
+                    } else {
+                        // 未登录时使用默认存储
+                        const savedFavorites = localStorage.getItem('musicPlayerFavorites');
+                        favoriteSongs = savedFavorites ? JSON.parse(savedFavorites) : [];
+                    }
+                } catch (error) {
+                    console.error('加载收藏列表失败:', error);
+                    favoriteSongs = [];
+                }
+            },
+            
+            // 保存收藏列表到localStorage
+            saveFavorites: function() {
+                try {
+                    // 检查是否有登录的用户
+                    if (window.UserAuth && UserAuth.currentUser) {
+                        localStorage.setItem(`user_${UserAuth.currentUser.username}_favorites`, JSON.stringify(favoriteSongs));
+                    } else {
+                        // 未登录时使用默认存储
+                        localStorage.setItem('musicPlayerFavorites', JSON.stringify(favoriteSongs));
+                    }
+                    return true;
+                } catch (error) {
+                    console.error('保存收藏列表失败:', error);
+                    return false;
+                }
+            },
+            
+            // 检查歌曲是否已收藏
+            isFavorite: function(songId) {
+                return favoriteSongs.some(song => song.id === songId);
+            },
+            
+            // 切换歌曲收藏状态
+            toggleFavorite: function(song) {
+                const index = favoriteSongs.findIndex(s => s.id === song.id);
+                const isCurrentlyFavorite = index > -1;
+                
+                if (isCurrentlyFavorite) {
+                    // 取消收藏
+                    favoriteSongs.splice(index, 1);
+                } else {
+                    // 添加收藏
+                    // 确保添加完整的歌曲信息
+                    const songToAdd = {
+                        id: song.id,
+                        title: song.title,
+                        artist: song.artist,
+                        cover: song.cover,
+                        audioSrc: song.audioSrc
+                    };
+                    favoriteSongs.push(songToAdd);
+                }
+                
+                // 保存到localStorage
+                const saveSuccess = this.saveFavorites();
+                
+                if (saveSuccess) {
+                    // 触发收藏状态变化事件
+                    this.triggerFavoritesChanged(song, !isCurrentlyFavorite);
+                    return !isCurrentlyFavorite; // 返回新的收藏状态
+                }
+                
+                return isCurrentlyFavorite; // 如果保存失败，保持原有状态
+            },
+            
+            // 触发收藏状态变化事件
+            triggerFavoritesChanged: function(song, isNowFavorite) {
+                const event = new CustomEvent('favoritesChanged', {
+                    detail: {
+                        song: song,
+                        isFavorite: isNowFavorite
+                    }
+                });
+                document.dispatchEvent(event);
+            },
+            
+            // 设置事件监听器
+            setupEventListeners: function() {
+                // 监听收藏状态变化事件
+                document.addEventListener('favoritesChanged', (event) => {
+                    const { song, isFavorite } = event.detail;
+                    this.updateUIForSong(song.id, isFavorite);
+                    this.handleViewRefresh();
+                });
+            },
+            
+            // 更新特定歌曲的UI
+            updateUIForSong: function(songId, isFavorite) {
+                // 更新所有与该歌曲相关的收藏按钮
+                const favoriteButtons = document.querySelectorAll(`[data-favorite-song-id="${songId}"]`);
+                favoriteButtons.forEach(button => {
+                    if (isFavorite) {
+                        button.classList.add('text-yellow-400');
+                        button.classList.remove('text-gray-400', 'hover:text-yellow-400');
+                    } else {
+                        button.classList.remove('text-yellow-400');
+                        button.classList.add('text-gray-400', 'hover:text-yellow-400');
+                    }
+                });
+            },
+            
+            // 处理视图刷新
+            handleViewRefresh: function() {
+                // 检查当前打开的视图类型并进行相应刷新
+                if (modalOverlay.classList.contains('active')) {
+                    if (modalTitle.textContent === '我的收藏') {
+                        // 如果在收藏列表中，重新加载整个列表
+                        showFavorites();
+                    } else if (modalTitle.textContent === '播放历史') {
+                        // 如果在历史记录中，更新其中的收藏按钮
+                        this.updateAllFavoriteButtonsInList(historySongs);
+                    } else {
+                        // 如果在其他榜单中，找到当前榜单并更新
+                        const currentChartName = modalTitle.textContent;
+                        for (const [chartId, chartData] of Object.entries(chartsData)) {
+                            if (chartData.name === currentChartName) {
+                                this.updateAllFavoriteButtonsInList(chartData.songs);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // 如果没有打开模态框，更新主页面上的榜单卡片
+                    this.updateAllFavoriteButtonsInCharts();
+                }
+            },
+            
+            // 更新列表中的所有收藏按钮
+            updateAllFavoriteButtonsInList: function(songs) {
+                songs.forEach(song => {
+                    this.updateUIForSong(song.id, this.isFavorite(song.id));
+                });
+            },
+            
+            // 更新榜单卡片中的所有收藏按钮
+            updateAllFavoriteButtonsInCharts: function() {
+                for (const chartData of Object.values(chartsData)) {
+                    chartData.songs.forEach(song => {
+                        this.updateUIForSong(song.id, this.isFavorite(song.id));
+                    });
+                }
+            },
+            
+            // 获取收藏按钮的HTML字符串
+            getFavoriteButtonHTML: function(song) {
+                const isFav = this.isFavorite(song.id);
+                const songJson = JSON.stringify(song).replace(/"/g, '&quot;');
+                // 已收藏：悬停放大，点击缩小确认
+                // 未收藏：悬停放大，但不点亮爱心
+                const classes = isFav 
+                    ? 'text-yellow-400 transition-transform duration-200 hover:scale-110 active:scale-90 focus:outline-none' 
+                    : 'text-gray-400 transition-transform duration-200 hover:scale-110 focus:outline-none';
+                
+                return `
+                    <button class="${classes}" 
+                        data-favorite-song-id="${song.id}"
+                        onclick="event.stopPropagation(); FavoritesManager.toggleFavorite(${songJson});">
+                        <i class="fa fa-heart"></i>
+                    </button>
+                `;
+            }
+        };
+        
+        // 历史记录功能
+        function loadHistory() {
+            try {
+                // 检查是否有登录的用户
+                if (window.UserAuth && UserAuth.currentUser) {
+                    const savedHistory = localStorage.getItem(`user_${UserAuth.currentUser.username}_history`);
+                    historySongs = savedHistory ? JSON.parse(savedHistory) : [];
+                } else {
+                    // 未登录时使用默认存储
+                    const savedHistory = localStorage.getItem('musicPlayerHistory');
+                    historySongs = savedHistory ? JSON.parse(savedHistory) : [];
+                }
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                historySongs = [];
+            }
+        }
+        
+        function saveHistory() {
+            try {
+                // 限制历史记录数量为100
+                if (historySongs.length > 100) {
+                    historySongs = historySongs.slice(0, 100);
+                }
+                
+                // 检查是否有登录的用户
+                if (window.UserAuth && UserAuth.currentUser) {
+                    localStorage.setItem(`user_${UserAuth.currentUser.username}_history`, JSON.stringify(historySongs));
+                } else {
+                    // 未登录时使用默认存储
+                    localStorage.setItem('musicPlayerHistory', JSON.stringify(historySongs));
+                }
+                return true;
+            } catch (error) {
+                console.error('保存历史记录失败:', error);
+                return false;
+            }
+        }
+        
+        function addToHistory(song) {
+            // 检查是否已存在，存在则移除
+            const index = historySongs.findIndex(s => s.id === song.id);
+            if (index > -1) {
+                historySongs.splice(index, 1);
+            }
+            
+            // 添加到历史记录开头
+            historySongs.unshift(song);
+            saveHistory();
+        }
+        
+        // 显示收藏页面
+        function showFavorites() {
+            modalTitle.textContent = '我的收藏';
+            
+            // 清空并重新生成歌曲列表
+            songsList.innerHTML = '';
+            
+            if (favoriteSongs.length === 0) {
+                songsList.innerHTML = `
+                    <div class="text-center py-10">
+                        <i class="fa fa-heart text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">暂无收藏的歌曲</p>
+                    </div>
+                `;
+            } else {
+                favoriteSongs.forEach(song => {
+                    const songItem = document.createElement('div');
+                    songItem.className = 'song-hover flex items-center p-3 cursor-pointer';
+                    songItem.innerHTML = `
+                        <img src="${song.cover}" alt="${song.title}" class="w-12 h-12 rounded-md mr-4">
+                        <div class="flex-grow">
+                            <p class="font-medium">${song.title}</p>
+                            <p class="text-sm text-gray-400">${song.artist}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-primary" 
+                                onclick="event.stopPropagation(); loadToPlayer(${JSON.stringify(song).replace(/"/g, '&quot;')}, ${JSON.stringify(favoriteSongs).replace(/"/g, '&quot;')})">
+                                <i class="fa fa-play"></i>
+                            </button>
+                            ${FavoritesManager.getFavoriteButtonHTML(song)}
+                        </div>
+                    `;
+                    
+                    // 点击整行也可以播放
+                    songItem.addEventListener('click', () => {
+                        loadToPlayer(song, favoriteSongs);
+                    });
+                    
+                    songsList.appendChild(songItem);
+                });
+            }
+            
+            // 显示模态框
+            modalOverlay.classList.add('active');
+        }
+        
+        // 显示历史记录页面
+        function showHistory() {
+            modalTitle.textContent = '播放历史';
+            
+            // 清空并重新生成歌曲列表
+            songsList.innerHTML = '';
+            
+            if (historySongs.length === 0) {
+                songsList.innerHTML = `
+                    <div class="text-center py-10">
+                        <i class="fa fa-history text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">暂无播放历史</p>
+                    </div>
+                `;
+            } else {
+                historySongs.forEach(song => {
+                    const songItem = document.createElement('div');
+                    songItem.className = 'song-hover flex items-center p-3 cursor-pointer';
+                    songItem.innerHTML = `
+                        <img src="${song.cover}" alt="${song.title}" class="w-12 h-12 rounded-md mr-4">
+                        <div class="flex-grow">
+                            <p class="font-medium">${song.title}</p>
+                            <p class="text-sm text-gray-400">${song.artist}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-primary" 
+                                onclick="event.stopPropagation(); loadToPlayer(${JSON.stringify(song).replace(/"/g, '&quot;')}, ${JSON.stringify(historySongs).replace(/"/g, '&quot;')})">
+                                <i class="fa fa-play"></i>
+                            </button>
+                            ${FavoritesManager.getFavoriteButtonHTML(song)}
+                        </div>
+                    `;
+                    
+                    // 点击整行也可以播放
+                    songItem.addEventListener('click', () => {
+                        loadToPlayer(song, historySongs);
+                    });
+                    
+                    songsList.appendChild(songItem);
+                });
+            }
+            
+            // 显示模态框
+            modalOverlay.classList.add('active');
+        }
+        
+        // 打开榜单模态框
+        function openChartModal(chartId) {
+            const chartData = chartsData[chartId];
+            modalTitle.textContent = chartData.name;
+            
+            // 清空并重新生成歌曲列表
+            songsList.innerHTML = '';
+            
+            chartData.songs.forEach(song => {
+                const songItem = document.createElement('div');
+                songItem.className = 'song-hover flex items-center p-3 cursor-pointer';
+                songItem.innerHTML = `
+                    <img src="${song.cover}" alt="${song.title}" class="w-12 h-12 rounded-md mr-4">
+                    <div class="flex-grow">
+                        <p class="font-medium">${song.title}</p>
+                        <p class="text-sm text-gray-400">${song.artist}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="text-primary" 
+                            onclick="event.stopPropagation(); loadToPlayer(${JSON.stringify(song).replace(/"/g, '&quot;')}, ${JSON.stringify(chartData.songs).replace(/"/g, '&quot;')})">
+                            <i class="fa fa-play"></i>
+                        </button>
+                        ${FavoritesManager.getFavoriteButtonHTML(song)}
+                    </div>
+                `;
+                
+                // 点击整行也可以播放
+                songItem.addEventListener('click', () => {
+                    loadToPlayer(song, chartData.songs);
+                });
+                
+                songsList.appendChild(songItem);
+            });
+            
+            // 显示模态框
+            modalOverlay.classList.add('active');
+        }
+        
+        // 初始化模态框
+        function initModal() {
+            closeModal.addEventListener('click', () => {
+                modalOverlay.classList.remove('active');
+            });
+            
+            // 点击模态框外部关闭
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    modalOverlay.classList.remove('active');
+                }
+            });
+        }
+        
+        // 获取所有歌曲数据
+        function getAllSongs() {
+            let allSongs = [];
+            for (const chartData of Object.values(chartsData)) {
+                allSongs = allSongs.concat(chartData.songs);
+            }
+            return allSongs;
+        }
+        
+        // 初始化最受喜爱排行榜
+        function initFavoriteChart() {
+            // 直接使用chartsData.favoriteChart.songs中已定义的数据
+            // 为每首歌曲添加点赞数（从9999开始递减）
+            const top10Songs = chartsData.favoriteChart.songs.map((song, index) => ({
+                ...song,
+                likes: 9999 - index * 1000 // 为每首歌分配递减的点赞数
+            }));
+            
+            // 保存到chartsData中（保持原始歌曲顺序）
+            chartsData.favoriteChart.songs = top10Songs;
+            
+            // 创建最受喜爱排行榜区域
+            const favoriteChartSection = document.createElement('section');
+            favoriteChartSection.className = 'mb-16';
+            favoriteChartSection.innerHTML = `
+                <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-8 text-center text-shadow">${chartsData.favoriteChart.name}</h2>
+                <div class="bg-dark/50 rounded-2xl p-6 shadow-xl border border-gray-800">
+                    <div id="mostFavoriteSongsList" class="space-y-4">
+                        <!-- 最受喜爱的歌曲将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            `;
+            
+            // 将新区域添加到热门榜单区域后面
+            const chartsSection = document.querySelector('main section:first-child');
+            chartsSection.after(favoriteChartSection);
+            
+            // 渲染歌曲列表
+            const songsListContainer = document.getElementById('mostFavoriteSongsList');
+            chartsData.favoriteChart.songs.forEach((song, index) => {
+                const songItem = document.createElement('div');
+                songItem.className = 'flex items-center justify-between p-4 rounded-lg hover:bg-sky-500/5 transition-colors group cursor-pointer';
+                songItem.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        <div class="w-10 h-10 flex items-center justify-center text-xl font-bold ${index < 3 ? 'text-yellow-400' : 'text-gray-400'}">
+                            ${index + 1}
+                        </div>
+                        <img src="${song.cover}" alt="${song.title}" class="w-14 h-14 rounded-md object-cover shadow-md">
+                        <div>
+                            <h3 class="font-medium text-lg group-hover:text-primary transition-colors">${song.title}</h3>
+                            <p class="text-gray-400 text-sm">${song.artist || '-'}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-6">
+                        <div class="text-gray-400">
+                            <i class="fa fa-thumbs-up mr-2"></i>
+                            ${song.likes.toLocaleString()}
+                        </div>
+                        <div class="space-x-2">
+                            ${FavoritesManager.getFavoriteButtonHTML(song)}
+                            <button class="text-gray-400 hover:text-primary transition-colors" 
+                                onclick="event.stopPropagation(); loadToPlayer(${JSON.stringify(song).replace(/"/g, '&quot;')}, [${JSON.stringify(chartsData.favoriteChart.songs).replace(/"/g, '&quot;')}])">
+                                <i class="fa fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // 点击整行也可以播放
+                songItem.addEventListener('click', () => {
+                    loadToPlayer(song, chartsData.favoriteChart.songs);
+                });
+                
+                songsListContainer.appendChild(songItem);
+            });
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            // 初始化基础功能
+            initPlayer();
+            initCharts();
+            initModal();
+            initFavoriteChart(); // 初始化最受喜爱排行榜
+            
+            // 页面关闭前保存状态
+            window.addEventListener('beforeunload', () => {
+                savePlayerState();
+                FavoritesManager.saveFavorites();
+                saveHistory();
+            });
+        });
+        
+        // 全局函数
+        window.loadToPlayer = loadToPlayer;
+        window.openChartModal = openChartModal;
+        window.toggleFavorite = function(song) { return FavoritesManager.toggleFavorite(song); };
+        window.showFavorites = showFavorites;
+        window.showHistory = showHistory;
+        window.FavoritesManager = FavoritesManager;
+    </script>
+</body>
+</html>
